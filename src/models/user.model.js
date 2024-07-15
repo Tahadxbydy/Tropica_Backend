@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const userSchema = new mongoose.Schema({
   name: {
@@ -12,11 +13,15 @@ const userSchema = new mongoose.Schema({
     required: true,
     match: [/^\S+@\S+\.\S+$/, "Please enter a valid email address"],
   },
+  refreshToken: {
+    type: String,
+    required: false,
+  },
   addrress: {
     type: String,
     required: false,
   },
-  Image: {
+  image: {
     required: false,
     type: String,
     // default: "default_user_image.jpg",

@@ -7,6 +7,7 @@ import {
   updateUser,
   login,
   logout,
+  updateProfilePic,
 } from "../controllers/user.controllers.js";
 import { upload } from "../middleWare/fileupload.middleware.js";
 
@@ -18,8 +19,12 @@ router.route("/login").post(login);
 
 // secured routes
 router.route("/updateUser").post(authMiddleware, updateUser);
-router.route("/deleteUser").post(authMiddleware, deleteUser);
-router.route("/getUserDetails").post(authMiddleware, getUserDetails);
-router.route("/logout").post(authMiddleware, logout);
+router.route("/deleteUser").delete(authMiddleware, deleteUser);
+router.route("/getUserDetails").get(authMiddleware, getUserDetails);
+router.route("/logout").get(authMiddleware, logout);
+
+router
+  .route("/updateProfilePic")
+  .patch(authMiddleware, upload.single("image"), updateProfilePic);
 
 export default router;

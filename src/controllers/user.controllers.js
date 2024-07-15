@@ -14,20 +14,19 @@ const generateAccessAndRefreshToken = async (userId) => {
 };
 
 const createUser = asyncHandler(async (req, res) => {
-  const { name, email, image, password, address, mobileNumber } = req.body;
+  const { name, email, password, address, mobileNumber } = req.body;
 
-  var existingUser = await userModel.findOne({ email: email });
+  var existingUser = await userModel.findOne({
+    $or: { email: email, mobileNumber: mobileNumber },
+  });
   if (existingUser) {
-    throw new ApiError(409, "User Email already exists");
-  }
-  existingUser = await userModel.findOne({ mobileNumber: mobileNumber });
-  if (existingUser) {
-    throw new ApiError(409, "User mobile number already exists");
+    throw new ApiError(409, "User Email or mobile number already exists");
   }
 
-  if (image) {
+  let image = null;
+  if (req.file) {
     // If image is provided, get its local path
-    const imageLocalPath = req.file;
+    const imageLocalPath = req.file?.path;
     console.log(imageLocalPath);
     // Upload the image to cloudinary and get the public_id
     image = await uploadOnCloudinary(imageLocalPath);
@@ -36,7 +35,7 @@ const createUser = asyncHandler(async (req, res) => {
   const createdUser = await userModel.create({
     name,
     email,
-    image,
+    image: image.url,
     password,
     mobileNumber,
     address,
@@ -45,20 +44,103 @@ const createUser = asyncHandler(async (req, res) => {
 });
 
 const deleteUser = asyncHandler(async (req, res) => {
-  //   const { id } = req.params;
-  //   await catagoryModel.findByIdAndDelete(id);
-  //   res.status(204).send();
+  const user = await userModel.findByIdAndDelete(req.user.id);
+
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  res
+    .status(204)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .end();
 });
 
 const getUserDetails = asyncHandler(async (req, res) => {
-  //   const catagories = await catagoryModel.find({});
-  //   res.json(catagories);
+  res.status(200).json(new ApiResponse(200, req.user, "your details"));
 });
 
 const updateUser = asyncHandler(async (req, res) => {});
 
-const login = asyncHandler(async (req, res) => {});
+const updateProfilePic = asyncHandler(async (req, res) => {
+  const { image } = req.body;
+  if (!image) {
+    throw ApiError(400, "Profile image not provided");
+  }
+  // If image is provided, get its local path
+  const imageLocalPath = req.file?.path;
+  // Upload the image to cloudinary and get the public_id
+  image = await uploadOnCloudinary(imageLocalPath);
+  const updatedUser = await userModel.findByIdAndUpdate(
+    req.user.id,
+    { image },
+    { new: true }
+  );
+  if (!updatedUser) {
+    throw new ApiError(404, "User not found");
+  }
+  res
+    .status(200)
+    .json(new ApiResponse(200, updatedUser, "Profile picture updated"));
+});
 
-const logout = asyncHandler(async (req, res) => {});
+const login = asyncHandler(async (req, res) => {
+  const { mobileNumber, email, password } = req.body;
+  if (!mobileNumber && !email) {
+    throw new ApiError(401, "mobileNumber or email not provided");
+  }
+  if (!password) {
+    throw new ApiError(401, "password not provided");
+  }
+  const user = await userModel.findOne({ $or: [{ mobileNumber }, { email }] });
 
-export { createUser, deleteUser, getUserDetails, updateUser, login, logout };
+  if (!user) {
+    throw new ApiError(401, "Invalid credentials");
+  }
+  if (await user.matchPassword(password)) {
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+      user._id
+    );
+    const options = {
+      secure: true,
+
+      httpOnly: true,
+    };
+
+    user.refreshToken = refreshToken;
+    res
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+        new ApiResponse(200, { user, accessToken }, "Logged in successfully")
+      );
+  }
+});
+
+const logout = asyncHandler(async (req, res) => {
+  req.user.refreshToken = undefined;
+  await req.user.save({ validateBeforeSave: false });
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, "Bye Bye", "user Logged Out"));
+});
+
+export {
+  createUser,
+  deleteUser,
+  getUserDetails,
+  updateUser,
+  login,
+  logout,
+  updateProfilePic,
+};
