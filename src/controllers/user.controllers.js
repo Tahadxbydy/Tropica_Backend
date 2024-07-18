@@ -27,7 +27,6 @@ const createUser = asyncHandler(async (req, res) => {
   if (req.file) {
     // If image is provided, get its local path
     const imageLocalPath = req.file?.path;
-    console.log(imageLocalPath);
     // Upload the image to cloudinary and get the public_id
     image = await uploadOnCloudinary(imageLocalPath);
   }
@@ -64,20 +63,28 @@ const getUserDetails = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, req.user, "your details"));
 });
 
-const updateUser = asyncHandler(async (req, res) => {});
+const updateUser = asyncHandler(async (req, res) => {
+  //  const {name, email, address, mobileNumber} = req.body;
+  const updatedUser = await userModel.findByIdAndUpdate(req.user.id, req.body, {
+    new: true,
+  });
+  if (!updatedUser) {
+    throw new ApiError(404, "User not found");
+  }
+  res.status(200).json(new ApiResponse(200, updatedUser, "User updated"));
+});
 
 const updateProfilePic = asyncHandler(async (req, res) => {
-  const { image } = req.body;
-  if (!image) {
-    throw ApiError(400, "Profile image not provided");
+  const imageLocalPath = req.file?.path;
+  if (!imageLocalPath) {
+    throw new ApiError(400, "Profile image not provided");
   }
   // If image is provided, get its local path
-  const imageLocalPath = req.file?.path;
   // Upload the image to cloudinary and get the public_id
-  image = await uploadOnCloudinary(imageLocalPath);
+  const image = await uploadOnCloudinary(imageLocalPath);
   const updatedUser = await userModel.findByIdAndUpdate(
     req.user.id,
-    { image },
+    { image: image.url },
     { new: true }
   );
   if (!updatedUser) {
@@ -101,24 +108,27 @@ const login = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(401, "Invalid credentials");
   }
-  if (await user.matchPassword(password)) {
-    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-      user._id
-    );
-    const options = {
-      secure: true,
-
-      httpOnly: true,
-    };
-
-    user.refreshToken = refreshToken;
-    res
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
-      .json(
-        new ApiResponse(200, { user, accessToken }, "Logged in successfully")
-      );
+  const isPasswordCorrect = await user.matchPassword(password);
+  if (!isPasswordCorrect) {
+    new ApiError(401, "password not correct");
   }
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user._id
+  );
+
+  const options = {
+    secure: true,
+
+    httpOnly: true,
+  };
+
+  user.refreshToken = refreshToken;
+  res
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(200, { user, accessToken }, "Logged in successfully")
+    );
 });
 
 const logout = asyncHandler(async (req, res) => {

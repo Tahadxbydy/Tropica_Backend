@@ -15,7 +15,7 @@ const router = Router();
 
 router.route("/createUser").post(upload.single("image"), createUser);
 
-router.route("/login").post(login);
+router.route("/login").get(login);
 
 // secured routes
 router.route("/updateUser").post(authMiddleware, updateUser);

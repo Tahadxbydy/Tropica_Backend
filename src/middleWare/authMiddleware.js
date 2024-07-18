@@ -1,9 +1,7 @@
 import { userModel } from "../models/user.model.js";
 import { ApiError } from "../utills/apiError.js";
 import { asyncHandler } from "../utills/asyncHandler.js";
-// import { ApiError } from "../utills/apiError.js";
 import jwt from "jsonwebtoken";
-// import { userModel } from "../models/user.model.js";
 
 const authMiddleware = asyncHandler(async (req, res, next) => {
   try {

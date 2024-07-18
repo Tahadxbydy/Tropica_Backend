@@ -1,5 +1,6 @@
 import { authMiddleware } from "../middleWare/authMiddleware.js";
 import { Router } from "express";
+import { checkRoleMiddleware } from "../middleWare/checkRoleMiddleware.js";
 import {
   createCatagory,
   deleteCatagory,
@@ -12,8 +13,14 @@ const router = Router();
 router.route("/getAllCatagory").get(getAllCatagory);
 
 // secured routes
-router.route("/createCatagory").post(createCatagory);
-router.route("/updateCatagory").post(authMiddleware, updateCatagory);
-router.route("/deleteCatagory").post(authMiddleware, deleteCatagory);
+router
+  .route("/createCatagory")
+  .post(authMiddleware, checkRoleMiddleware, createCatagory);
+router
+  .route("/updateCatagory")
+  .patch(authMiddleware, checkRoleMiddleware, updateCatagory);
+router
+  .route("/deleteCatagory")
+  .delete(authMiddleware, checkRoleMiddleware, deleteCatagory);
 
 export default router;
